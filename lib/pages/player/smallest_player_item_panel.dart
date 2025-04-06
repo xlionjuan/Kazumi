@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:kazumi/utils/utils.dart';
 import 'package:kazumi/pages/video/video_controller.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
@@ -32,6 +33,8 @@ class SmallestPlayerItemPanel extends StatefulWidget {
     required this.startHideTimer,
     required this.cancelHideTimer,
     required this.handleDanmaku,
+    required this.showVideoInfo,
+    required this.showSyncPlayRoomCreateDialog,
   });
 
   final void Function(BuildContext) onBackPressed;
@@ -46,6 +49,8 @@ class SmallestPlayerItemPanel extends StatefulWidget {
   final FocusNode keyboardFocus;
   final void Function() startHideTimer;
   final void Function() cancelHideTimer;
+  final void Function() showVideoInfo;
+  final void Function() showSyncPlayRoomCreateDialog;
 
   @override
   State<SmallestPlayerItemPanel> createState() =>
@@ -63,36 +68,6 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
   final InfoController infoController = Modular.get<InfoController>();
   final PlayerController playerController = Modular.get<PlayerController>();
   final TextEditingController textController = TextEditingController();
-
-  void showVideoInfo() async {
-    String currentDemux = await Utils.getCurrentDemux();
-    KazumiDialog.show(
-        // onDismiss: () {
-        //   _focusNode.requestFocus();
-        // },
-        builder: (context) {
-      return AlertDialog(
-        title: const Text('视频详情'),
-        content: SelectableText.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: '规则: ${videoPageController.currentPlugin.name}\n'),
-              TextSpan(text: '硬件解码: ${haEnable ? '启用' : '禁用'}\n'),
-              TextSpan(text: '解复用器: $currentDemux\n'),
-              const TextSpan(text: '资源地址: '),
-              TextSpan(
-                text: playerController.videoUrl,
-              ),
-            ],
-          ),
-          style: Theme.of(context).textTheme.bodyLarge!,
-        ),
-        actions: const [
-          TextButton(onPressed: KazumiDialog.dismiss, child: Text('取消')),
-        ],
-      );
-    });
-  }
 
   void showForwardChange() {
     KazumiDialog.show(builder: (context) {
@@ -188,6 +163,14 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final svgString = danmakuOnSvg.replaceFirst(
+        '00AEEC',
+        Theme.of(context)
+            .colorScheme
+            .primary
+            .toARGB32()
+            .toRadixString(16)
+            .substring(2));
     return Observer(builder: (context) {
       return Stack(
         alignment: Alignment.center,
@@ -397,9 +380,15 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                       // 弹幕开关
                       IconButton(
                         color: Colors.white,
-                        icon: Icon(playerController.danmakuOn
-                            ? Icons.subtitles_rounded
-                            : Icons.subtitles_off_rounded),
+                        icon: playerController.danmakuOn
+                            ? SvgPicture.string(
+                                svgString,
+                                height: 24,
+                              )
+                            : SvgPicture.asset(
+                                'assets/images/danmaku_off.svg',
+                                height: 24,
+                              ),
                         onPressed: () {
                           widget.handleDanmaku();
                         },
@@ -540,6 +529,44 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                               child: Text("超分辨率"),
                             ),
                           ),
+                          SubmenuButton(
+                              menuChildren: [
+                                MenuItemButton(
+                                  child: Padding(
+                                    padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
+                                    child: Text(
+                                        "当前房间: ${playerController.syncplayRoom == '' ? '未加入' : playerController.syncplayRoom}"),
+                                  ),
+                                ),
+                                MenuItemButton(
+                                  child: Padding(
+                                    padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
+                                    child: Text(
+                                        "网络延时: ${playerController.syncplayClientRtt}ms"),
+                                  ),
+                                ),
+                                MenuItemButton(
+                                  onPressed: () {
+                                    widget.showSyncPlayRoomCreateDialog();
+                                  },
+                                  child: const Padding(
+                                    padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
+                                    child: Text("加入房间"),
+                                  ),
+                                ),
+                                MenuItemButton(
+                                  onPressed: () async {
+                                    await playerController.exitSyncPlayRoom();
+                                  },
+                                  child: const Padding(
+                                    padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
+                                    child: Text("断开连接"),
+                                  ),
+                                ),
+                              ],
+                              child: const Padding(
+                                  padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
+                                  child: Text("一起看"))),
                           MenuItemButton(
                             onPressed: () {
                               widget.showDanmakuSwitch();
@@ -562,11 +589,13 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                                             16
                                         : MediaQuery.of(context).size.width),
                                 clipBehavior: Clip.antiAlias,
-                                context: context,builder: (context) {
-                                return DanmakuSettingsSheet(
-                                    danmakuController:
-                                        playerController.danmakuController);
-                              });
+                                context: context,
+                                builder: (context) {
+                                  return DanmakuSettingsSheet(
+                                      danmakuController:
+                                          playerController.danmakuController);
+                                },
+                              );
                             },
                             child: const Padding(
                               padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
@@ -575,7 +604,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                           ),
                           MenuItemButton(
                             onPressed: () {
-                              showVideoInfo();
+                              widget.showVideoInfo();
                             },
                             child: const Padding(
                               padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
@@ -587,7 +616,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                               bool needRestart = playerController.playing;
                               playerController.pause();
                               RemotePlay()
-                                  .castVideo(context,
+                                  .castVideo(playerController.videoUrl,
                                       videoPageController.currentPlugin.referer)
                                   .whenComplete(() {
                                 if (needRestart) {
@@ -597,7 +626,16 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                             },
                             child: const Padding(
                               padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
-                              child: Text("远程播放"),
+                              child: Text("远程投屏"),
+                            ),
+                          ),
+                          MenuItemButton(
+                            onPressed: () {
+                              playerController.lanunchExternalPlayer();
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.fromLTRB(0, 10, 10, 10),
+                              child: Text("外部播放"),
                             ),
                           ),
                         ],

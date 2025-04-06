@@ -168,9 +168,7 @@ class _TimelinePageState extends State<TimelinePage>
                 },
               ),
             ),
-            body: Padding(
-                padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
-                child: renderBody(orientation)),
+            body: renderBody(orientation),
           ),
         );
       });
@@ -196,27 +194,53 @@ class _TimelinePageState extends State<TimelinePage>
     int crossCount = orientation != Orientation.portrait ? 6 : 3;
     for (dynamic bangumiList in bangumiCalendar) {
       gridViewList.add(
-        CustomScrollView(
-          slivers: [
-            SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                mainAxisSpacing: StyleString.cardSpace - 2,
-                crossAxisSpacing: StyleString.cardSpace,
-                crossAxisCount: crossCount,
-                mainAxisExtent:
-                    MediaQuery.of(context).size.width / crossCount / 0.65 +
-                        MediaQuery.textScalerOf(context).scale(32.0),
+        Padding(
+          padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
+          child: CustomScrollView(
+            slivers: [
+              SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  mainAxisSpacing: StyleString.cardSpace - 2,
+                  crossAxisSpacing: StyleString.cardSpace,
+                  crossAxisCount: crossCount,
+                  mainAxisExtent:
+                      MediaQuery.of(context).size.width / crossCount / 0.65 +
+                          MediaQuery.textScalerOf(context).scale(32.0),
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (BuildContext context, int index) {
+                    return bangumiList.isNotEmpty
+                        ? Stack(
+                            children: [
+                              BangumiCardV(bangumiItem: bangumiList[index]),
+                              Positioned(
+                                right: 4,
+                                top: 4,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 0),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .tertiaryContainer,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    bangumiList[index]
+                                        .ratingScore
+                                        .toStringAsFixed(1),
+                                  ),
+                                ),
+                              )
+                            ],
+                          )
+                        : null;
+                  },
+                  childCount: bangumiList.isNotEmpty ? bangumiList.length : 10,
+                ),
               ),
-              delegate: SliverChildBuilderDelegate(
-                (BuildContext context, int index) {
-                  return bangumiList.isNotEmpty
-                      ? BangumiCardV(bangumiItem: bangumiList[index])
-                      : null;
-                },
-                childCount: bangumiList.isNotEmpty ? bangumiList.length : 10,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }

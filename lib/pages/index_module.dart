@@ -41,15 +41,21 @@ class IndexModule extends Module {
           ChildRoute(
             "/error",
             child: (_) => Scaffold(
-              appBar: AppBar (title: const Text("Kazumi")),
+              appBar: AppBar(title: const Text("Kazumi")),
               body: const Center(child: Text("初始化失败")),
             ),
           ),
         ],
         transition: TransitionType.noTransition);
-    r.child("/tab", child: (_) {
-      return const IndexPage();
-    }, children: menu.routes, transition: TransitionType.noTransition);
+    r.child(
+      "/tab",
+      child: (_) {
+        return const IndexPage();
+      },
+      children: menu.routes,
+      transition: TransitionType.fadeIn,
+      duration: Duration(milliseconds: 70),
+    );
     r.module("/video", module: VideoModule());
     r.module("/info", module: InfoModule());
     r.module("/settings", module: SettingsModule());

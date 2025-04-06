@@ -43,13 +43,14 @@ class _VideoPageState extends State<VideoPage>
       Modular.get<WebviewItemController>();
   late bool playResume;
   bool showDebugLog = false;
-  List<String> logLines = [];
+  List<String> webviewLogLines = [];
   final FocusNode keyboardFocus = FocusNode();
 
   ScrollController scrollController = ScrollController();
   late GridObserverController observerController;
   late AnimationController animation;
   late Animation<Offset> _rightOffsetAnimation;
+  late Animation<double> _maskOpacityAnimation;
   late TabController tabController;
 
   // 当前播放列表
@@ -74,11 +75,11 @@ class _VideoPageState extends State<VideoPage>
     windowManager.addListener(this);
     // Check fullscreen when enter video page
     // in case user use system controls to enter fullscreen outside video page
-    tabController = TabController(length: 2, vsync: this);
     videoPageController.isDesktopFullscreen();
+    tabController = TabController(length: 2, vsync: this);
     observerController = GridObserverController(controller: scrollController);
     animation = AnimationController(
-      duration: const Duration(milliseconds: 100),
+      duration: const Duration(milliseconds: 120),
       vsync: this,
     );
     _rightOffsetAnimation = Tween<Offset>(
@@ -86,7 +87,14 @@ class _VideoPageState extends State<VideoPage>
       end: const Offset(0.0, 0.0),
     ).animate(CurvedAnimation(
       parent: animation,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOut,
+    ));
+    _maskOpacityAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeIn,
     ));
     videoPageController.currentEpisode = 1;
     videoPageController.currentRoad = 0;
@@ -129,7 +137,7 @@ class _VideoPageState extends State<VideoPage>
     _logSubscription = webviewItemController.onLog.listen((event) {
       debugPrint('Kazumi Webview log: $event');
       if (event == 'clear') {
-        clearLogs();
+        clearWebviewLog();
         return;
       }
       if (event == 'showDebug') {
@@ -137,7 +145,7 @@ class _VideoPageState extends State<VideoPage>
         return;
       }
       setState(() {
-        logLines.add(event);
+        webviewLogLines.add(event);
       });
     });
   }
@@ -193,25 +201,19 @@ class _VideoPageState extends State<VideoPage>
     });
   }
 
-  void clearLog() {
+  void clearWebviewLog() {
     setState(() {
-      logLines.clear();
+      webviewLogLines.clear();
     });
   }
 
   Future<void> changeEpisode(int episode,
       {int currentRoad = 0, int offset = 0}) async {
-    clearLogs();
+    clearWebviewLog();
     hideDebugConsole();
     videoPageController.loading = true;
     infoController.episodeInfo.reset();
     infoController.episodeCommentsList.clear();
-    // Query comments when tab is visible
-    // We need lazy load comments to avoid unnecessary API requests
-    // so we only query comments when the tab is visible rather than video is loaded
-    if (tabController.index == 1) {
-      infoController.queryBangumiEpisodeCommentsByID(infoController.bangumiItem.id, episode);
-    }
     await playerController.stop();
     await videoPageController.changeEpisode(episode,
         currentRoad: currentRoad, offset: offset);
@@ -235,7 +237,7 @@ class _VideoPageState extends State<VideoPage>
 
   void closeTabBodyAnimated() {
     animation.reverse();
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 120), () {
       videoPageController.showTabBody = false;
     });
     keyboardFocus.requestFocus();
@@ -355,7 +357,6 @@ class _VideoPageState extends State<VideoPage>
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, Object? result) {
-        debugPrint("checkPoint: didPop: $didPop");
         if (didPop) {
           return;
         }
@@ -409,12 +410,24 @@ class _VideoPageState extends State<VideoPage>
 
                     // when is wideScreen, show tabBody on the right side with SlideTransition
                     if (isWideScreen && videoPageController.showTabBody) ...[
-                      GestureDetector(
-                        onTap: closeTabBodyAnimated,
-                        child: Container(
-                          color: Colors.black38,
-                          width: double.infinity,
-                          height: double.infinity,
+                      FadeTransition(
+                        opacity: _maskOpacityAnimation,
+                        child: GestureDetector(
+                          onTap: closeTabBodyAnimated,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.5),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
                         ),
                       ),
                       SlideTransition(
@@ -455,7 +468,7 @@ class _VideoPageState extends State<VideoPage>
   Widget get playerBody {
     return Stack(
       children: [
-        // 日志组件
+        // webview log component (not player log, used for video parsing)
         Positioned.fill(
           child: Stack(
             children: [
@@ -515,10 +528,10 @@ class _VideoPageState extends State<VideoPage>
                     alignment: Alignment.center,
                     child: ListView.builder(
                       shrinkWrap: true,
-                      itemCount: logLines.length,
+                      itemCount: webviewLogLines.length,
                       itemBuilder: (context, index) {
                         return Text(
-                          logLines.isEmpty ? '' : logLines[index],
+                          webviewLogLines.isEmpty ? '' : webviewLogLines[index],
                           style: const TextStyle(
                             color: Colors.white,
                           ),
@@ -734,7 +747,7 @@ class _VideoPageState extends State<VideoPage>
                               currentRoad ==
                                   videoPageController.currentRoad) ...<Widget>[
                             Image.asset(
-                              'assets/images/live.png',
+                              'assets/images/playing.gif',
                               color: Theme.of(context).colorScheme.primary,
                               height: 12,
                             ),
@@ -897,7 +910,10 @@ class _VideoPageState extends State<VideoPage>
                       ],
                     ),
                   ),
-                  EpisodeCommentsSheet(episode: episodeNum),
+                  EpisodeInfo(
+                    episode: episodeNum,
+                    child: EpisodeCommentsSheet(),
+                  ),
                 ],
               ),
             ),

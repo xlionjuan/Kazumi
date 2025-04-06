@@ -125,7 +125,6 @@ class _AboutPageState extends State<AboutPage> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {});
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (bool didPop, Object? result) async {
@@ -199,6 +198,7 @@ class _AboutPageState extends State<AboutPage> {
                         onPressed: (_) {
                           KazumiDialog.show(builder: (context) {
                             return SimpleDialog(
+                              clipBehavior: Clip.antiAlias,
                               title: const Text('关闭时'),
                               children: [
                                 for (int i = 0; i < 3; i++)

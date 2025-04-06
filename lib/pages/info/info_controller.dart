@@ -13,6 +13,7 @@ import 'package:kazumi/utils/logger.dart';
 import 'package:kazumi/modules/comments/comment_item.dart';
 import 'package:kazumi/modules/characters/character_item.dart';
 import 'package:kazumi/modules/bangumi/episode_item.dart';
+import 'package:kazumi/modules/staff/staff_item.dart';
 
 part 'info_controller.g.dart';
 
@@ -22,6 +23,9 @@ abstract class _InfoController with Store {
   final CollectController collectController = Modular.get<CollectController>();
   late BangumiItem bangumiItem;
   EpisodeInfo episodeInfo = EpisodeInfo.fromTemplate();
+
+  @observable
+  bool isLoading = false;
 
   @observable
   var pluginSearchResponseList = ObservableList<PluginSearchResponse>();
@@ -38,31 +42,11 @@ abstract class _InfoController with Store {
   @observable
   var characterList = ObservableList<CharacterItem>();
 
-  /// 移动到 query_manager.dart 以解决可能的内存泄漏
-  // querySource(String keyword) async {
-  //   final PluginsController pluginsController =
-  //       Modular.get<PluginsController>();
-  //   pluginSearchResponseList.clear();
-
-  //   for (Plugin plugin in pluginsController.pluginList) {
-  //     pluginSearchStatus[plugin.name] = 'pending';
-  //   }
-
-  //   var controller = StreamController();
-  //   for (Plugin plugin in pluginsController.pluginList) {
-  //     plugin.queryBangumi(keyword).then((result) {
-  //       pluginSearchStatus[plugin.name] = 'success';
-  //       controller.add(result);
-  //     }).catchError((error) {
-  //       pluginSearchStatus[plugin.name] = 'error';
-  //     });
-  //   }
-  //   await for (var result in controller.stream) {
-  //     pluginSearchResponseList.add(result);
-  //   }
-  // }
+  @observable
+  var staffList = ObservableList<StaffFullItem>();
 
   Future<void> queryBangumiInfoByID(int id, {String type = "init"}) async {
+    isLoading = true;
     await BangumiHTTP.getBangumiInfoByID(id).then((value) {
       if (value != null) {
         if (type == "init") {
@@ -71,8 +55,15 @@ abstract class _InfoController with Store {
           bangumiItem.summary = value.summary;
           bangumiItem.tags = value.tags;
           bangumiItem.rank = value.rank;
+          bangumiItem.airDate = value.airDate;
+          bangumiItem.airWeekday = value.airWeekday;
+          bangumiItem.alias = value.alias;
+          bangumiItem.ratingScore = value.ratingScore;
+          bangumiItem.votes = value.votes;
+          bangumiItem.votesCount = value.votesCount;
         }
         collectController.updateLocalCollect(bangumiItem);
+        isLoading = false;
       }
     });
   }
@@ -116,8 +107,8 @@ abstract class _InfoController with Store {
   
   Future<void> queryBangumiCharactersByID(int id) async {
     characterList.clear();
-    await BangumiHTTP.getCharatersByID(id).then((value) {
-      characterList.addAll(value.characterList);
+    await BangumiHTTP.getCharatersByBangumiID(id).then((value) {
+      characterList.addAll(value.charactersList);
     });
     Map<String, int> relationValue = {
       '主角': 1,
@@ -132,5 +123,13 @@ abstract class _InfoController with Store {
       KazumiDialog.showToast(message: '$e');
     }
     KazumiLogger().log(Level.info, '已加载角色列表长度 ${characterList.length}');
+  }
+
+  Future<void> queryBangumiStaffsByID(int id) async {
+    staffList.clear();
+    await BangumiHTTP.getBangumiStaffByID(id).then((value) {
+      staffList.addAll(value.data);
+    });
+    KazumiLogger().log(Level.info, '已加载制作人员列表长度 ${staffList.length}');
   }
 }
