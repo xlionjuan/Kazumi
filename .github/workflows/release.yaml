@@ -15,7 +15,7 @@
     jobs:
       flutter-build-android:
         name: "Release for android"
-        runs-on: "ubuntu-latest" 
+        runs-on: "ubuntu-24.04-arm" 
         permissions: write-all
         steps:
           - name: Clone repository
