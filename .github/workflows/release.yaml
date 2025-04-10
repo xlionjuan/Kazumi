@@ -45,6 +45,7 @@
             run: flutter pub get
             shell: bash
           - name: Inject DanDan API Credentials
+            if: false
             run: |
               sed -i "s/kvpx7qkqjh/${{ secrets.DANDANAPI_APPID }}/g" lib/utils/mortis.dart
               sed -i "s/rABUaBLqdz7aCSi3fe88ZDj2gwga9Vax/${{ secrets.DANDANAPI_KEY }}/g" lib/utils/mortis.dart
@@ -67,6 +68,7 @@
       flutter-build-windows:
         name: "Release for windows"
         runs-on: "windows-latest"
+        if: false
         needs: [flutter-build-android, flutter-build-ios, flutter-build-linux, flutter-build-macos] 
         permissions: write-all
     
@@ -171,7 +173,7 @@
 
       flutter-build-linux:
         name: "Release for Linux"
-        runs-on: "ubuntu-latest" 
+        runs-on: "ubuntu-24.04-arm" 
         permissions: write-all
         steps:
           - name: Clone repository
@@ -209,6 +211,7 @@
             run: flutter pub get
             shell: bash
           - name: Inject DanDan API Credentials
+            if: false
             run: |
               sed -i "s/kvpx7qkqjh/${{ secrets.DANDANAPI_APPID }}/g" lib/utils/mortis.dart
               sed -i "s/rABUaBLqdz7aCSi3fe88ZDj2gwga9Vax/${{ secrets.DANDANAPI_KEY }}/g" lib/utils/mortis.dart
@@ -227,40 +230,8 @@
           - name: Package linux build output
             run: |
               # Tarball package
-              tar -zcvf Kazumi_linux_${{ env.tag }}_amd64.tar.gz -C build/linux/x64/release/bundle .
+              tar -zcvf Kazumi_linux_${{ env.tag }}_arm64.tar.gz -C build/linux/arm64/release/bundle .
 
-              # Debian package
-              mkdir Kazumi_linux_${{ env.tag }}_amd64
-              cd Kazumi_linux_${{ env.tag }}_amd64
-              mkdir -p opt/Kazumi
-              mkdir -p usr/share/applications
-              mkdir -p usr/share/icons/hicolor/512x512/apps
-              cp -r ../build/linux/x64/release/bundle/* opt/Kazumi
-              cp -r ../assets/linux/DEBIAN .
-              chmod 0755 DEBIAN/postinst
-              chmod 0755 DEBIAN/postrm
-
-              cat>DEBIAN/control<<EOF
-              Maintainer: madoka773 <valigarmanda55@gmail.com>
-              Package: Kazumi
-              Version: ${{ env.tag }}
-              Section: x11
-              Priority: optional
-              Architecture: amd64
-              Essential: no
-              Installed-Size: 34648
-              Description: Watch Animes online with danmaku support.
-              Homepage: https://github.com/Predidit/Kazumi
-              Depends: libayatana-appindicator3-1,
-                       gir1.2-ayatanaappindicator3-0.1,
-                       libwebkit2gtk-4.1-0
-              EOF
-
-              cp ../assets/linux/io.github.Predidit.Kazumi.desktop usr/share/applications
-              cp ../assets/images/logo/logo_linux.png usr/share/icons/hicolor/512x512/apps/io.github.Predidit.Kazumi.png
-
-              cd ..
-              dpkg-deb --build --root-owner-group Kazumi_linux_${{ env.tag }}_amd64
             shell: bash
 
           - name: Upload linux outputs
@@ -269,11 +240,11 @@
               name: linux_outputs
               path: |
                 Kazumi_linux_*.tar.gz
-                Kazumi_linux_*.deb
 
       flutter-build-ios:
         name: "Release for iOS"
         runs-on: "macos-latest"
+        if: false
         permissions: write-all
 
         steps:
@@ -310,6 +281,7 @@
       flutter-build-macos:
         name: "Release for Macos"
         runs-on: "macos-latest"
+        if: false
         permissions: write-all
 
         steps:
@@ -347,6 +319,7 @@
         runs-on: "ubuntu-latest"
         needs: [flutter-build-windows] 
         permissions: write-all
+        if: false
         steps:
           - name: Clone repository
             uses: actions/checkout@v4
