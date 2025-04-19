@@ -4,7 +4,6 @@ import 'package:kazumi/pages/router.dart';
 import 'package:kazumi/pages/init_page.dart';
 import 'package:flutter/material.dart';
 import 'package:kazumi/pages/popular/popular_controller.dart';
-import 'package:kazumi/pages/info/info_controller.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/pages/video/video_controller.dart';
 import 'package:kazumi/pages/timeline/timeline_controller.dart';
@@ -15,6 +14,7 @@ import 'package:kazumi/pages/video/video_module.dart';
 import 'package:kazumi/pages/info/info_module.dart';
 import 'package:kazumi/pages/settings/settings_module.dart';
 import 'package:kazumi/shaders/shaders_controller.dart';
+import 'package:kazumi/pages/search/search_module.dart';
 
 class IndexModule extends Module {
   @override
@@ -23,7 +23,6 @@ class IndexModule extends Module {
   @override
   void binds(i) {
     i.addSingleton(PopularController.new);
-    i.addSingleton(InfoController.new);
     i.addSingleton(PluginsController.new);
     i.addSingleton(VideoPageController.new);
     i.addSingleton(TimelineController.new);
@@ -57,7 +56,9 @@ class IndexModule extends Module {
       duration: Duration(milliseconds: 70),
     );
     r.module("/video", module: VideoModule());
+    /// The route need [ BangumiItem ] as argument.
     r.module("/info", module: InfoModule());
     r.module("/settings", module: SettingsModule());
+    r.module("/search", module: SearchModule());
   }
 }

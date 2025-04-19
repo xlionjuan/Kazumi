@@ -19,6 +19,8 @@ import 'package:kazumi/pages/info/info_tabview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:kazumi/modules/bangumi/bangumi_item.dart';
+import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
 
 class InfoPage extends StatefulWidget {
   const InfoPage({super.key});
@@ -28,7 +30,9 @@ class InfoPage extends StatefulWidget {
 }
 
 class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
-  final InfoController infoController = Modular.get<InfoController>();
+  /// Don't use modular singleton here. We may have multiple info pages.
+  /// Use a new instance of InfoController for each info page.
+  final InfoController infoController = InfoController();
   final VideoPageController videoPageController =
       Modular.get<VideoPageController>();
   final PluginsController pluginsController = Modular.get<PluginsController>();
@@ -41,6 +45,8 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
   bool charactersQueryTimeout = false;
   bool staffIsLoading = false;
   bool staffQueryTimeout = false;
+
+  final inputBangumiIten = Modular.args.data as BangumiItem;
 
   Future<void> loadCharacters() async {
     if (charactersIsLoading) return;
@@ -114,6 +120,12 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    infoController.bangumiItem = inputBangumiIten;
+    infoController.characterList.clear();
+    infoController.commentsList.clear();
+    infoController.staffList.clear();
+    infoController.pluginSearchResponseList.clear();
+    videoPageController.currentEpisode = 1;
     // Because the gap between different bangumi API response is too large, sometimes we need to query the bangumi info again
     // We need the type parameter to determine whether to attach the new data to the old data
     // We can't generally replace the old data with the new data, because the old data contains images url, update them will cause the image to reload and flicker
@@ -182,10 +194,16 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
                       NestedScrollView.sliverOverlapAbsorberHandleFor(context),
                   sliver: SliverAppBar.medium(
                     title: EmbeddedNativeControlArea(
-                      child: Text(
-                        infoController.bangumiItem.nameCn == ''
-                            ? infoController.bangumiItem.name
-                            : infoController.bangumiItem.nameCn,
+                      child: dtb.DragToMoveArea(
+                        child: Container(
+                          width: double.infinity,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            infoController.bangumiItem.nameCn == ''
+                                ? infoController.bangumiItem.name
+                                : infoController.bangumiItem.nameCn,
+                          ),
+                        ),
                       ),
                     ),
                     automaticallyImplyLeading: false,
@@ -356,7 +374,7 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
                 showDragHandle: true,
                 context: context,
                 builder: (context) {
-                  return SourceSheet(tabController: sourceTabController);
+                  return SourceSheet(tabController: sourceTabController, infoController: infoController);
                 },
               );
             },

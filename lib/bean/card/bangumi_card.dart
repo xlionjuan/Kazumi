@@ -3,7 +3,6 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
-import 'package:kazumi/pages/info/info_controller.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/utils.dart';
 
@@ -13,18 +12,15 @@ class BangumiCardV extends StatelessWidget {
     super.key,
     required this.bangumiItem,
     this.canTap = true,
-    this.longPress,
-    this.longPressEnd,
+    this.enableHero = true,
   });
 
   final BangumiItem bangumiItem;
   final bool canTap;
-  final Function()? longPress;
-  final Function()? longPressEnd;
+  final bool enableHero;
 
   @override
   Widget build(BuildContext context) {
-    final InfoController infoController = Modular.get<InfoController>();
     return Card(
       elevation: 0,
       clipBehavior: Clip.hardEdge,
@@ -38,8 +34,7 @@ class BangumiCardV extends StatelessWidget {
               );
               return;
             }
-            infoController.bangumiItem = bangumiItem;
-            Modular.to.pushNamed('/info/');
+            Modular.to.pushNamed('/info/', arguments: bangumiItem);
           },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,15 +51,21 @@ class BangumiCardV extends StatelessWidget {
                   child: LayoutBuilder(builder: (context, boxConstraints) {
                     final double maxWidth = boxConstraints.maxWidth;
                     final double maxHeight = boxConstraints.maxHeight;
-                    return Hero(
-                      transitionOnUserGestures: true,
-                      tag: bangumiItem.id,
-                      child: NetworkImgLayer(
-                        src: bangumiItem.images['large'] ?? '',
-                        width: maxWidth,
-                        height: maxHeight,
-                      ),
-                    );
+                    return enableHero
+                        ? Hero(
+                            transitionOnUserGestures: true,
+                            tag: bangumiItem.id,
+                            child: NetworkImgLayer(
+                              src: bangumiItem.images['large'] ?? '',
+                              width: maxWidth,
+                              height: maxHeight,
+                            ),
+                          )
+                        : NetworkImgLayer(
+                            src: bangumiItem.images['large'] ?? '',
+                            width: maxWidth,
+                            height: maxHeight,
+                          );
                   }),
                 ),
               ),
