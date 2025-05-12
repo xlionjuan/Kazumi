@@ -8,22 +8,50 @@ import 'package:kazumi/utils/mortis.dart';
 import 'package:kazumi/modules/danmaku/danmaku_module.dart';
 import 'package:kazumi/modules/danmaku/danmaku_search_response.dart';
 import 'package:kazumi/modules/danmaku/danmaku_episode_response.dart';
+import 'package:kazumi/utils/string_match.dart';
 
 class DanmakuRequest {
+
+  // 从标题列表中获取番剧ID
+  static Future<int> getBangumiIDByTitles(List<String> titleList) async {
+    for (var title in titleList) {
+      int bangumiID = await getBangumiID(title);
+      if (bangumiID != 0) {
+        return bangumiID;
+      }
+    }
+    return 0;
+  }
+
   //获取弹弹Play集合，需要进一步处理
   static Future<int> getBangumiID(String title) async {
     DanmakuSearchResponse danmakuSearchResponse =
         await getDanmakuSearchResponse(title);
 
-    // 保留此判断以防止错误匹配
-    int minAnimeId = 100000;
+    int bestAnimeId = 0;
+    double maxSimilarity = 0;
+
     for (var anime in danmakuSearchResponse.animes) {
       int animeId = anime.animeId;
-      if (animeId < minAnimeId && animeId >= 2) {
-        minAnimeId = animeId;
+      if (animeId >= 100000 || animeId < 2) {
+        continue;
+      }
+
+      String animeTitle = anime.animeTitle;
+      double similarity = calculateSimilarity(animeTitle, title);
+      if (similarity == 1) {
+        KazumiLogger().log(Level.debug, '完全匹配番剧弹幕 $title');
+        return animeId;
+      }
+
+      if (similarity > maxSimilarity) {
+        maxSimilarity = similarity;
+        bestAnimeId = animeId;
+        KazumiLogger().log(Level.debug, '匹配番剧弹幕 $title --- $animeTitle 相似度: $similarity');
       }
     }
-    return minAnimeId;
+
+    return bestAnimeId;
   }
 
   //从BangumiID获取分集ID
@@ -78,7 +106,7 @@ class DanmakuRequest {
 
   static Future<List<Danmaku>> getDanDanmaku(int bangumiID, int episode) async {
     List<Danmaku> danmakus = [];
-    if (bangumiID == 100000) {
+    if (bangumiID == 0) {
       return danmakus;
     }
     // 这里猜测了弹弹Play的分集命名规则，例如上面的番剧ID为1758，第一集弹幕库ID大概率为17580001，但是此命名规则并没有体现在官方API文档里，保险的做法是请求 Api.dandanInfo
@@ -130,8 +158,7 @@ class DanmakuRequest {
     Map<String, String> withRelated = {
       'withRelated': 'true',
     };
-    final res = await Request().get(
-        endPoint,
+    final res = await Request().get(endPoint,
         data: withRelated,
         options: Options(headers: httpHeaders),
         extra: {'customError': '弹幕检索错误: 获取弹幕失败'});

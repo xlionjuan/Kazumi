@@ -96,7 +96,12 @@ class WebviewWindowsItemControllerImpel
             .add('Callback received: ${Uri.decodeFull(messageItem)}');
         logEventController.add(
             'If there is audio but no video, please report it to the rule developer.');
-        if (messageItem.contains('http') || messageItem.startsWith('//')) {
+        if ((messageItem.contains('http') || messageItem.startsWith('//')) &&
+            !messageItem.contains('googleads') &&
+            !messageItem.contains('googlesyndication.com') &&
+            !messageItem.contains('prestrain.html') &&
+            !messageItem.contains('prestrain%2Ehtml') &&
+            !messageItem.contains('adtrafficquality')) {
           logEventController.add('Parsing video source $messageItem');
           if (Utils.decodeVideoSource(messageItem) !=
                   Uri.encodeFull(messageItem) &&
@@ -111,12 +116,18 @@ class WebviewWindowsItemControllerImpel
             videoParserEventController
                 .add((Utils.decodeVideoSource(messageItem), offset));
           }
-          if (!useNativePlayer) {
-            Future.delayed(const Duration(seconds: 2), () {
-              isIframeLoaded = true;
-              videoLoadingEventController.add(false);
-            });
-          }
+        }
+      }
+      if (event.toString().contains('iframeRedirectMessage:')) {
+        String messageItem = Uri.encodeFull(
+            event.toString().replaceFirst('iframeRedirectMessage:', ''));
+        logEventController
+            .add('Redirect to ${Utils.decodeVideoSource(messageItem)}');
+        if (!useNativePlayer) {
+          Future.delayed(const Duration(seconds: 2), () {
+            isIframeLoaded = true;
+            videoLoadingEventController.add(false);
+          });
         }
       }
       if (event.toString().contains('videoMessage:')) {
@@ -146,9 +157,12 @@ class WebviewWindowsItemControllerImpel
       for (var i = 0; i < iframes.length; i++) {
           var iframe = iframes[i];
           var src = iframe.getAttribute('src');
+          if (src) {
+            window.chrome.webview.postMessage('iframeMessage:' + src);
+          }
 
-          if (src && src.trim() !== '' && (src.startsWith('http') || src.startsWith('//')) && !src.includes('googleads') && !src.includes('googlesyndication.com') && !src.includes('google.com') && !src.includes('prestrain.html') && !src.includes('prestrain%2Ehtml')) {
-              window.chrome.webview.postMessage('iframeMessage:' + src);
+          if (src && src.trim() !== '' && (src.startsWith('http') || src.startsWith('//')) && !src.includes('googleads') && !src.includes('googlesyndication.com') && !src.includes('adtrafficquality') && !src.includes('google.com') && !src.includes('prestrain.html') && !src.includes('prestrain%2Ehtml')) {
+              window.chrome.webview.postMessage('iframeRedirectMessage:' + src);
               window.location.href = src;
               break; 
           }
@@ -211,34 +225,75 @@ class WebviewWindowsItemControllerImpel
           });
           return _open.apply(this, args);
       } 
-      document.querySelectorAll('iframe').forEach((iframe) => {
+      function injectIntoIframe(iframe) {
         try {
-            const _r_text = iframe.contentWindow.Response.prototype.text;
-            iframe.contentWindow.Response.prototype.text = function () {
-                return new Promise((resolve, reject) => {
-                    _r_text.call(this).then((text) => {
-                        resolve(text);
-                        if (text.trim().startsWith("#EXTM3U")) {
-                            iframe.contentWindow.parent.postMessage({ message: 'videoMessage:' + this.url }, "*");
-                        }
-                    }).catch(reject);
-                });
+          const iframeWindow = iframe.contentWindow;
+          if (!iframeWindow) return;
+          
+          const iframe_r_text = iframeWindow.Response.prototype.text;
+          iframeWindow.Response.prototype.text = function () {
+            return new Promise((resolve, reject) => {
+              iframe_r_text.call(this).then((text) => {
+                resolve(text);
+                if (text.trim().startsWith("#EXTM3U")) {
+                  console.log(this.url);
+                  window.chrome.webview.postMessage('videoMessage:' + this.url);
+                }
+              }).catch(reject);
+            });
+          }
+          
+          const iframe_open = iframeWindow.XMLHttpRequest.prototype.open;
+          iframeWindow.XMLHttpRequest.prototype.open = function (...args) {
+            this.addEventListener("load", () => {
+              try {
+                let content = this.responseText;
+                if (content.trim().startsWith("#EXTM3U")) {
+                  console.log(args[1]);
+                  window.chrome.webview.postMessage('videoMessage:' + args[1]);
+                };
+              } catch { }
+            });
+            return iframe_open.apply(this, args);
+          }
+        } catch (e) {
+          console.error('iframe inject failed:', e);
+        }
+      }
+
+      function setupIframeListeners() {
+        document.querySelectorAll('iframe').forEach(iframe => {
+          if (iframe.contentDocument) {
+            injectIntoIframe(iframe);
+          }
+          iframe.addEventListener('load', () => injectIntoIframe(iframe));
+        });
+        
+        const observer = new MutationObserver(mutations => {
+          mutations.forEach(mutation => {
+            if (mutation.type === 'childList') {
+              mutation.addedNodes.forEach(node => {
+                if (node.nodeName === 'IFRAME') {
+                  node.addEventListener('load', () => injectIntoIframe(node));
+                }
+                if (node.querySelectorAll) {
+                  node.querySelectorAll('iframe').forEach(iframe => {
+                    iframe.addEventListener('load', () => injectIntoIframe(iframe));
+                  });
+                }
+              });
             }
-      
-            const _open = iframe.contentWindow.XMLHttpRequest.prototype.open;
-            iframe.contentWindow.XMLHttpRequest.prototype.open = function (...args) {
-                this.addEventListener("load", () => {
-                    try {
-                        let content = this.responseText;
-                        if (content.trim().startsWith("#EXTM3U")) {
-                            iframe.contentWindow.parent.postMessage({ message: 'videoMessage:' + args[1] }, "*");
-                        };
-                    } catch { }
-                });
-                return _open.apply(this, args);
-            } 
-        } catch { }
-      });
+          });
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupIframeListeners);
+      } else {
+        setupIframeListeners();
+      }
     ''');
   }
 

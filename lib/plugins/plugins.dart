@@ -4,6 +4,7 @@ import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/request/request.dart';
 import 'package:html/parser.dart';
 import 'package:logger/logger.dart';
+import 'package:kazumi/request/api.dart';
 import 'package:kazumi/utils/logger.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
 
@@ -72,13 +73,13 @@ class Plugin {
 
   factory Plugin.fromTemplate() {
     return Plugin(
-        api: '1',
+        api: Api.apiLevel.toString(),
         type: 'anime',
         name: '',
         version: '',
         muliSources: true,
         useWebview: true,
-        useNativePlayer: false,
+        useNativePlayer: true,
         usePost: false,
         useLegacyParser: false,
         userAgent: '',
@@ -153,7 +154,7 @@ class Plugin {
     htmlElement.queryXPath(searchList).nodes.forEach((element) {
       try {
         SearchItem searchItem = SearchItem(
-          name: element.queryXPath(searchName).node!.text ?? '',
+          name: element.queryXPath(searchName).node!.text?.trim() ?? '',
           src: element.queryXPath(searchResult).node!.attributes['href'] ?? '',
         );
         searchItems.add(searchItem);
