@@ -59,7 +59,7 @@
             uses: actions/upload-artifact@v4
             with:
               name: android_outputs
-              path: *.apk
+              path: "*.apk"
 
       release:
         name: "Release"
